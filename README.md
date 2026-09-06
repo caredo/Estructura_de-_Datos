@@ -1,2 +1,2 @@
-# Estructura_de-_Datos
+# Estructura_de_Datos
 Se ha creado este nuevo repositorio con el fin de tener enun sitio para los trabajos propuestos en clase de estructura de datos
