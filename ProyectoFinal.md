@@ -68,7 +68,7 @@ El sistema controla de forma nativa las siguientes condiciones especiales exigid
 2.  Clone el repositorio e ingrese al directorio del proyecto.
 3.  Ejecute el archivo principal para ver el despliegue automático de casos:
     ```bash
-    python main.py
+    main_biblioteca.py
     ```
 
 ---
