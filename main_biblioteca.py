@@ -1,6 +1,3 @@
-# =====================================================================
-# CONTRATO (INTERFAZ) PARA LA COLA DE ESPERA (COMPONENTE D)
-# =====================================================================
 class IColaEspera:
     def encolar(self, nombre_usuario: str) -> None:
         pass
@@ -15,9 +12,6 @@ class IColaEspera:
         pass
 
 
-# =====================================================================
-# IMPLEMENTACION 1: COLA CON ARREGLO FIJO - CIRCULAR (COMPONENTE D)
-# =====================================================================
 class ColaArreglo(IColaEspera):
     def __init__(self, capacidad: int = 10):
         self.__capacidad = capacidad
@@ -47,15 +41,6 @@ class ColaArreglo(IColaEspera):
 
     def tamano(self) -> int:
         return self.__tamano
-
-
-# =====================================================================
-# IMPLEMENTACION 2: COLA CON LISTA ENLAZADA (COMPONENTE A Y D)
-# =====================================================================
-class NodoUsuario:
-    def __init__(self, nombre_usuario: str):
-        self.nombre_usuario = nombre_usuario
-        self.siguiente = None
 
 
 class ColaListaEnlazada(IColaEspera):
@@ -90,9 +75,12 @@ class ColaListaEnlazada(IColaEspera):
         return self.__tamano
 
 
-# =====================================================================
-# ENTIDAD PRINCIPAL ENCAPSULADA
-# =====================================================================
+class NodoUsuario:
+    def __init__(self, nombre_usuario: str):
+        self.nombre_usuario = nombre_usuario
+        self.siguiente = None
+
+
 class Libro:
     def __init__(self, isbn: str, titulo: str, autor: str):
         self.__isbn = isbn
@@ -112,9 +100,6 @@ class Libro:
         return f"[ISBN: {self.__isbn} | '{self.__titulo}' - {self.__autor}]"
 
 
-# =====================================================================
-# REGISTRO PRINCIPAL: LISTA DOBLEMENTE ENLAZADA (COMPONENTE A)
-# =====================================================================
 class NodoDoble:
     def __init__(self, libro: Libro):
         self.libro = libro
@@ -129,7 +114,7 @@ class CatalogoLibros:
 
     def insertar(self, libro: Libro) -> None:
         if self.buscar(libro.get_isbn()) is not None:
-            return
+            raise ValueError(f"Error: El ISBN {libro.get_isbn()} ya existe.")
         nuevo = NodoDoble(libro)
         if self.__cabeza is None:
             self.__cabeza = nuevo
@@ -147,40 +132,48 @@ class CatalogoLibros:
             actual = actual.siguiente
         return None
 
-    def eliminar(self, isbn: str) -> bool:
-        actual = self.__cabeza
-        while actual is not None:
-            if actual.libro.get_isbn() == isbn:
-                if actual.anterior is None and actual.siguiente is None:
-                    self.__cabeza = None
-                    self.__cola = None
-                elif actual.anterior is None:
-                    self.__cabeza = actual.siguiente
-                    self.__cabeza.anterior = None
-                elif actual.siguiente is None:
-                    self.__cola = actual.anterior
-                    self.__cola.siguiente = None
-                else:
-                    actual.anterior.siguiente = actual.siguiente
-                    actual.siguiente.anterior = actual.anterior
-                return True
-            actual = actual.siguiente
-        return False
 
-
-# =====================================================================
-# INDICE DE BUSQUEDA: ARBOL BINARIO DE BUSQUEDA (COMPONENTE B)
-# =====================================================================
 class NodoArbol:
     def __init__(self, libro: Libro):
         self.libro = libro
         self.izquierdo = None
         self.derecho = None
+        self.altura = 1
 
 
 class IndiceLibros:
     def __init__(self):
         self.__raiz = None
+
+    def _obtener_altura(self, nodo: NodoArbol) -> int:
+        if nodo:
+            return nodo.altura
+        return 0
+
+    def _obtener_balance(self, nodo: NodoArbol) -> int:
+        if not nodo:
+            return 0
+        alt_izq = self._obtener_altura(nodo.izquierdo)
+        alt_der = self._obtener_altura(nodo.derecho)
+        return alt_izq - alt_der
+
+    def _rotar_derecha(self, y: NodoArbol) -> NodoArbol:
+        x = y.izquierdo
+        T2 = x.derecho
+        x.derecho = y
+        y.izquierdo = T2
+        y.altura = 1 + max(self._obtener_altura(y.izquierdo), self._obtener_altura(y.derecho))
+        x.altura = 1 + max(self._obtener_altura(x.izquierdo), self._obtener_altura(x.derecho))
+        return x
+
+    def _rotar_izquierda(self, x: NodoArbol) -> NodoArbol:
+        y = x.derecho
+        T2 = y.izquierdo
+        y.izquierdo = x
+        x.derecho = T2
+        x.altura = 1 + max(self._obtener_altura(x.izquierdo), self._obtener_altura(x.derecho))
+        y.altura = 1 + max(self._obtener_altura(y.izquierdo), self._obtener_altura(y.derecho))
+        return y
 
     def insertar(self, libro: Libro) -> None:
         self.__raiz = self._insertar_recursivo(self.__raiz, libro)
@@ -192,6 +185,22 @@ class IndiceLibros:
             nodo.izquierdo = self._insertar_recursivo(nodo.izquierdo, libro)
         elif libro.get_isbn() > nodo.libro.get_isbn():
             nodo.derecho = self._insertar_recursivo(nodo.derecho, libro)
+        else:
+            return nodo
+
+        nodo.altura = 1 + max(self._obtener_altura(nodo.izquierdo), self._obtener_altura(nodo.derecho))
+        balance = self._obtener_balance(nodo)
+
+        if balance > 1 and libro.get_isbn() < nodo.izquierdo.libro.get_isbn():
+            return self._rotar_derecha(nodo)
+        if balance < -1 and libro.get_isbn() > nodo.derecho.libro.get_isbn():
+            return self._rotar_izquierda(nodo)
+        if balance > 1 and libro.get_isbn() > nodo.izquierdo.libro.get_isbn():
+            nodo.izquierdo = self._rotar_izquierda(nodo.izquierdo)
+            return self._rotar_derecha(nodo)
+        if balance < -1 and libro.get_isbn() < nodo.derecho.libro.get_isbn():
+            nodo.derecho = self._rotar_derecha(nodo.derecho)
+            return self._rotar_izquierda(nodo)
         return nodo
 
     def obtener_inorden_lista(self) -> list:
@@ -205,10 +214,17 @@ class IndiceLibros:
             lista.append(nodo.libro.get_isbn())
             self._inorden_rec(nodo.derecho, lista)
 
+    def imprimir_tabla_alturas(self) -> None:
+        self._imprimir_alturas_rec(self.__raiz)
 
-# =====================================================================
-# RELACIONES: GRAFO DE RECOMENDACIONES (COMPONENTE C)
-# =====================================================================
+    def _imprimir_alturas_rec(self, nodo):
+        if nodo:
+            self._imprimir_alturas_rec(nodo.izquierdo)
+            balance = self._obtener_balance(nodo)
+            print(f"  [ISBN: {nodo.libro.get_isbn()} -> Altura: {nodo.altura}, Balance: {balance}]")
+            self._imprimir_alturas_rec(nodo.derecho)
+
+
 class NodoVecino:
     def __init__(self, isbn_destino: str):
         self.isbn_destino = isbn_destino
@@ -217,77 +233,65 @@ class NodoVecino:
 
 class GrafoRecomendaciones:
     def __init__(self):
-        self.__adyacencias = {}
+        self.adyacencias = {}
 
     def agregar_libro(self, isbn: str) -> None:
-        if isbn not in self.__adyacencias:
-            self.__adyacencias[isbn] = None
+        if isbn not in self.adyacencias:
+            self.adyacencias[isbn] = None
 
     def agregar_recomendacion(self, isbn_origen: str, isbn_destino: str) -> None:
         self.agregar_libro(isbn_origen)
         self.agregar_libro(isbn_destino)
-
         nuevo_vecino = NodoVecino(isbn_destino)
-        nuevo_vecino.siguiente = self.__adyacencias[isbn_origen]
-        self.__adyacencias[isbn_origen] = nuevo_vecino
-
-    def obtener_recomendaciones_lista(self, isbn: str) -> list:
-        lista = []
-        if isbn in self.__adyacencias:
-            actual = self.__adyacencias[isbn]
-            while actual is not None:
-                lista.append(actual.isbn_destino)
-                actual = actual.siguiente
-        return lista
+        nuevo_vecino.siguiente = self.adyacencias[isbn_origen]
+        self.adyacencias[isbn_origen] = nuevo_vecino
 
 
-# =====================================================================
-# PRUEBA DEL SISTEMA INTEGRADO (VERSION ULTRA-COMPATIBLE)
-# =====================================================================
-if __name__ == "__main__":
-    # 1. Instanciar y cargar componentes de prueba internamente
-    catalogo = CatalogoLibros()
-    indice = IndiceLibros()
-    grafo = GrafoRecomendaciones()
-    cola_espera = ColaListaEnlazada()
+print("--- PUNTO 4: DEMOSTRACION DE CASOS ---")
+catalogo = CatalogoLibros()
+indice = IndiceLibros()
+grafo = GrafoRecomendaciones()
+l1 = Libro("111", "El Quijote", "Cervantes")
+l2 = Libro("222", "Cien Anos de Soledad", "Gabo")
+l3 = Libro("333", "Ficciones", "Borges")
 
-    l1 = Libro("111", "El Quijote", "Cervantes")
-    l2 = Libro("222", "Cien Anos de Soledad", "Gabriel Garcia Marquez")
-    l3 = Libro("333", "Ficciones", "Jorge Luis Borges")
+catalogo.insertar(l1)
+catalogo.insertar(l2)
+catalogo.insertar(l3)
+indice.insertar(l1)
+indice.insertar(l2)
+indice.insertar(l3)
+grafo.agregar_recomendacion("111", "222")
+grafo.agregar_recomendacion("111", "333")
 
-    catalogo.insertar(l1)
-    catalogo.insertar(l2)
-    catalogo.insertar(l3)
+print("[OK] Caso Normal cargado.")
+lista_isbns = " ".join(indice.obtener_inorden_lista())
+print(f"  ISBNs en Indice AVL: {lista_isbns}")
 
-    indice.insertar(l1)
-    indice.insertar(l2)
-    indice.insertar(l3)
+print("\n[TEST] Caso Limite 1: Duplicado")
+try:
+    catalogo.insertar(Libro("111", "Duplicado", "Autor"))
+except ValueError as e:
+    print(f"  Capturado -> {str(e)}")
 
-    grafo.agregar_recommendacion = grafo.agregar_recomendacion
-    grafo.agregar_recomendacion("111", "222")
-    grafo.agregar_recomendacion("111", "333")
+print("\n[TEST] Caso Limite 2: Overflow Cola")
+cola_limite = ColaArreglo(capacidad=2)
+try:
+    cola_limite.encolar("U1")
+    cola_limite.encolar("U2")
+    cola_limite.encolar("U3")
+except OverflowError as e:
+    print(f"  Capturado -> {str(e)}")
 
-    cola_espera.encolar("Andres")
-    cola_espera.encolar("Beatriz")
+print("\n[TEST] Intercambio de Colas")
+c_arr = ColaArreglo(capacidad=5)
+c_arr.encolar("Andres")
+c_arr.encolar("Beatriz")
+c_lis = ColaListaEnlazada()
+c_lis.encolar("Andres")
+c_lis.encolar("Beatriz")
+print(f"  ColaArreglo: {c_arr.desencolar()} y {c_arr.desencolar()}")
+print(f"  ColaListaEnlazada: {c_lis.desencolar()} y {c_lis.desencolar()}")
 
-    # 2. Recolectar datos de las estructuras sin usar prints intermedios
-    lista_isbn = " ".join(indice.obtener_inorden_lista())
-    lista_grafo = " ".join(grafo.obtener_recomendaciones_lista("111"))
-    u1 = cola_espera.desencolar()
-    u2 = cola_espera.desencolar()
-
-    # 3. CONSTRUIR UNA UNICA CADENA PARA EVITAR EL BUG DEL COMPILADOR WEB
-    resultado_final = (
-        "--- Probando Sistema de Biblioteca ---\n"
-        f"Recorrido Inorden del Indice (ISBNs): {lista_isbn}\n"
-        f"Libros recomendados para 111: {lista_grafo}\n"
-        "Probando Cola de Espera:\n"
-        f"Siguiente en atender: {u1}\n"
-        f"Siguiente en atender: {u2}"
-    )
-
-    # Un solo print limpia el buffer del simulador web por completo
-    print(resultado_final)
-
-
-
+print("\n--- PUNTO 5: TABLA DE ALTURAS AVL ---")
+indice.imprimir_tabla_alturas()
